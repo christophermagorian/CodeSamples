@@ -30,24 +30,31 @@ def create_Player_Tran_Table():
   ptran = Table('ptran' + dT, schema = [
     HashKey(id),
     RangeKey(dT.strftime("%Y-%m-%d %H:%M:%S")),
-    RangeKey('x'),
-    RangeKey('y'),
-    RangeKey('z')
+    RangeKey('p_x'),
+    RangeKey('p_y'),
+    RangeKey('p_z'),
+    RangeKey('r_x'),
+    RangeKey('r_y'),
+    RangeKey('r_z')
   ])
   return dT, id, ptran
  
 
 def Parse_Player_Json(data):
   a = json.loads(json.dumps(data))
-  p_x, p_y, p_z = a['pos']['x'], a['p_Pos']['y'], a['p_Pos']['z']
-  return p_x, p_y, pz
+  p_x, p_y, p_z = a[1], a[2], a[3]
+  r_x, r_y, r_z = a[4]. a[5], a[6]
+  return p_x, p_y, p_z, r_x, r_y, r_z
 
 # DynamoDB functions for writing Player Position using boto #
-def ddb_player_writer(id, dT, x, y, z):
+def ddb_player_writer(id, dT, p_x, p_y, p_z):
   p_Tran = Item(ptran, data={
-      'x': x,
-      'y': y,
-      'z': z
+      'p_x': p_x,
+      'p_y': p_y,
+      'p_z': p_z.
+      'r_x': r_x,
+      'r_y': r_y,
+      'r_z': r_z
     }  
   )
   p_Tran.save()
@@ -59,11 +66,38 @@ def create_Trans_Table():
   return {'dT': dT, 'id': id}
 
 # SocketIO transform listener
-@socketio.on('pRt', namespace='/player')
+@socketio.on('pTt', namespace='/player')
 def playerPosition(json):
-  p_x, p_y, p_z = Parse_Player_Json(json)
-  resp = ddb_player_writer(p_x, p_y, p_z)
+  p_x, p_y, p_z, r_x, r_y, r_z = Parse_Player_Json(json)
+  resp = ddb_player_writer(p_x, p_y, p_z, r_x, r_y, r_z)
   if resp is True:
-    emit("p_Pos_s", json, broadcast=true)
+    emit("p_Trans_s", json, broadcast=true)
   else:
-    emit("p_Pos_e", json, broadcast=true)
+    emit("p_Trans_e", json, broadcast=true)
+
+
+### End Python SocketIO code (server-side) ####
+
+####
+Not a lot there, I'm summing up work I did, but gives an idea of my concepts with server to client interaction. 
+
+Below is the relevant C# code in Unity for the above events. Uses one of my favorite libraries, BestHTTP. This also
+uses LitJson to parse and serialize JSON objects.
+####
+
+SocketManager manager = new SocketManager(new Uri("whatever-your-server-uri-is-and-port"));
+
+Socket base = manager.Socket;
+
+// the correct namespace:
+Socket player = manager["/player"]
+
+// called in a coroutine
+void OnPlayerTransform(Socket s, Packet p, params object[] args)
+{
+  Vector3 curr_Trans = player.transform.position;
+  Vector3 curr_Rot = player.transform.rotation.eulerAngles;
+  
+  manager.Socket.Emit("pTt", curr_Trans.x, curr_Trans.y, curr_Trans.z, curr_Rot.x, curr_Rot.y, curr_Rot.z);
+}
+
