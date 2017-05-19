@@ -1,0 +1,222 @@
+#### Examples of Python SQL (MySQLdb connector) Custom ORM with Flask (web server, RESTFUL Service) #### 
+
+##### When it comes to Restful Services, I like to lateralize the endpoints so that data can be retrieved simply
+from the browser. Restful endpoints are made specific to each column in the DB so that an analyst can easily access
+an endpoint with a couple query parameters and get data returned. The endpoints are secured with a UUID sequence and 
+secret_key known by users authenticated and sessions generated at time of login (in this example, a Management Software). 
+####
+
+#### Below is an example of models.py where functions are written and used by the restful service operator (forms.py)
+to generate endpoints that are easily accessible ####
+
+def action_Type(ID, type, data):
+
+	conn = mysql.connect()
+	cursor = conn.cursor()
+
+	if type == 'select':
+		data = None
+		cursor.execute("SELECT Type FROM Projects WHERE ProjectID = (%s);", ID)
+		conn.commit()
+		x = cursor.fetchone()
+		conn.close()
+		return x
+	elif type == 'update':
+		cursor.execute("UPDATE Projects SET Type = %s WHERE ProjectID = %s;", (data, ID))
+		conn.commit()
+		cursor.execute("SELECT Type FROM Projects WHERE ProjectID = (%s);", ID)
+		x = cursor.fetchone()
+		conn.close()
+		return x
+	else:
+		conn.close()
+		return "ERR: SQL_1_Type"
+
+def action_SubType(ID, type, data):
+
+	conn = mysql.connect()
+	cursor = conn.cursor()
+
+	if type == 'select':
+		data = None
+		cursor.execute("SELECT SubType FROM Projects WHERE ProjectID = (%s);", ID)
+		conn.commit()
+		x = cursor.fetchone()
+		conn.close()
+		return x
+	elif type == 'update':
+		cursor.execute("UPDATE Projects SET SubType = %s WHERE ProjectID = %s;", (data, ID))
+		conn.commit()
+		cursor.execute("SELECT SubType FROM Projects WHERE ProjectID = (%s);", ID)
+		x = cursor.fetchone()
+		conn.close()
+		return x
+	else:
+		conn.close()
+		return "ERR: SQL_1_SubType"
+
+def action_Editorial(ID, type, data):
+
+	conn = mysql.connect()
+	cursor = conn.cursor()
+
+	if type == 'select':
+		data = None
+		cursor.execute("SELECT Editorial FROM Projects WHERE ProjectID = (%s);", ID)
+		conn.commit()
+		x = cursor.fetchone()
+		conn.close()
+		return x
+	elif type == 'update':
+		cursor.execute("UPDATE Projects SET Editorial = %s WHERE ProjectID = %s;", (data, ID))
+		conn.commit()
+		cursor.execute("SELECT Editorial FROM Projects WHERE ProjectID = (%s);", ID)
+		x = cursor.fetchone()
+		conn.close()
+		return x
+	else:
+		conn.close()
+		return "ERR: SQL_1_Editorial"
+    
+    
+#### End models.py example ####
+
+#### The functions above are imported into other python files where they can be used in a variety of ways. I use 
+these functions liberally across my restful app to grab data where necessary without having the create a proxy
+middleware service that handles messaging between pages, modals, etc. With templating (Jinja 2) these functions in
+models.py are SUPER useful when it comes to front-end context processors (i.e. Calling get_fullname() which in turn
+calls a function in models.py called get_user. I rely on switchboard operation to if/else the different types of
+requests needed on the front-end.
+####
+
+#### Below is an example of a front-end context-processor that returns data around a Username.
+This function is located in the entry-point of the app (app.py) as it returns variables to Jinja
+in the front-end.
+####
+
+@app.context_processor
+def utility_processors():
+
+	def get_fullname(sn):
+		a = get_user(sn #the variable containing username rendered in session['username'], 'fn' #tell it to get fullname via switch)
+		b = a[0]
+		return b
+
+#### End Context-Processor Example ####
+
+#### Below is a sample of forms.py, the file containing operators for requests made from the browser and endpoint creation.
+Each class defines two kinds of requests for the various application functions and API functions. It's a 100% RESTful app.
+Normally an app would have event-driven callables where sockets are implemented and a message queue is generated for logging
+tasks and marking them complete, waiting, queued, etc. This example (a Management app) had to act sort of like a dashboard,
+i.e. people will be leaving it open on their computer all day as they are planning various parts of a piece of contents 
+production. Going 100% RESTful got rid of possible socket errors, connection failures and incompleteframes. I wanted it to
+be an interactive website, basically, with a lot of dope functionality and SUPER EASY UI. That's what the company needed to
+manage a lot of in-house content production.
+####
+
+class Type(Resource):
+	def get(self):
+
+		# parse args #
+		parser = reqparse.RequestParser()
+		parser.add_argument('id', type=str, help="ID of the Project you are looking for...")
+		args = parser.parse_args()
+
+		ID = args['id']
+
+		# use models.py #
+
+		data = None
+
+		x = action_Type(ID, 'select', data)
+		y = json.loads(json.dumps(x))
+		return y
+
+	def post(self):
+
+		# parse args #
+		parser = reqparse.RequestParser()
+		parser.add_argument('id', type=str, help="ID of the Project you are looking for...")
+		parser.add_argument('data', type=str, help="The change made to ProjectShow...")
+		args = parser.parse_args()
+
+		data = args['data']
+		ID = args['id']
+
+		# use models.py #
+
+		x = action_Type(ID, 'update', data)
+		y = json.loads(json.dumps(x))
+		return y
+
+class SubType(Resource):
+	def get(self):
+
+		# parse args #
+		parser = reqparse.RequestParser()
+		parser.add_argument('id', type=str, help="ID of the Project you are looking for...")
+		args = parser.parse_args()
+
+		ID = args['id']
+
+		# use models.py #
+
+		data = None
+
+		x = action_SubType(ID, 'select', data)
+		y = json.loads(json.dumps(x))
+		return y
+
+	def post(self):
+
+		# parse args #
+		parser = reqparse.RequestParser()
+		parser.add_argument('id', type=str, help="ID of the Project you are looking for...")
+		parser.add_argument('data', type=str, help="The change made to ProjectShow...")
+		args = parser.parse_args()
+
+		data = args['data']
+		ID = args['id']
+
+		# use models.py #
+
+		x = action_SubType(ID, 'update', data)
+		y = json.loads(json.dumps(x))
+		return y
+
+class Editorial(Resource):
+	def get(self):
+
+		# parse args #
+		parser = reqparse.RequestParser()
+		parser.add_argument('id', type=str, help="ID of the Project you are looking for...")
+		args = parser.parse_args()
+
+		ID = args['id']
+
+		# use models.py #
+
+		data = None
+
+		x = action_Editorial(ID, 'select', data)
+		y = json.loads(json.dumps(x))
+		return y
+
+	def post(self):
+
+		# parse args #
+		parser = reqparse.RequestParser()
+		parser.add_argument('id', type=str, help="ID of the Project you are looking for...")
+		parser.add_argument('data', type=str, help="The change made to ProjectShow...")
+		args = parser.parse_args()
+
+		data = args['data']
+		ID = args['id']
+
+		# use models.py #
+
+		x = action_Editorial(ID, 'update', data)
+		y = json.loads(json.dumps(x))
+		return y
+    
+#### End forms.py Request Parsing example ####
