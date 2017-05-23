@@ -1,7 +1,7 @@
 #### Python Flask (web framework)- SocketIO application created for event-driven Networking functionality in a Unity Game ####
 
 ####
-The idea behind this was creating a SocketIO Server for terrain data so the server could generate the information needed
+The idea behind this was creating a SocketIO Server for player data so the server could generate the information needed
 on the client to create a terrain map for a VR Game. I used SocketIO interfacing to be able to call procedures on both server
 and client to create an expandable map as the user plays it. The server would store the terrain data in a relational-database
 and then when a player is getting closer to the section of the map where more information would be needed in the LOD Group, 
@@ -10,9 +10,12 @@ the cleint would emit and server receive and callback.
 The server also stores the local streaming data in a JSON structure (I have used both TinyDB and DynamoDB for this, just depends
 on longevity of the data and whether I care about latency vs. storing.
 
-The advantage of doing it this way gave me the ability to have users control the environment that they are in, as well as get
+The advantage of picking up player data let me have the ability to have users control the environment that they are in, as well as get
 the feeling that they are in a HUGE territory. I liked a lot of games where the Server generates the map and kinds of objects/
-enemies/etc in it, so they feel like they have a customizeable experience. 
+enemies/etc in it, so they feel like they have a customizeable experience.
+
+I only included the player data side of it, another Code Sample (WebSockets), shows similar multiplayer data transfer, but using 
+WebSockets instead of SocketIO.
 
 This could work well for an kind of session-based multi-user space. Generating an index (could be xml, NoSQL table, json) that
 stores the terrain and environment data in an easily compresssed, parsed structure gives the flexibility of device hardware and
@@ -82,7 +85,7 @@ def playerPosition(json):
 Not a lot there, I'm summing up work I did, but gives an idea of my concepts with server to client interaction. 
 
 Below is the relevant C# code in Unity for the above events. Uses one of my favorite libraries, BestHTTP. This also
-uses LitJson to parse and serialize JSON objects.
+uses SimpleJSON to parse and serialize JSON objects.
 ####
 
 SocketManager manager = new SocketManager(new Uri("whatever-your-server-uri-is-and-port"));
