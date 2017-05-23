@@ -1,0 +1,195 @@
+####
+This is an experimental (haven't completely finished, nor tested all of) 
+code sample showing some work using Tornado's WebSocket Server Handler as a multiplayer server.
+I haven't had a ton of luck with Flask based Socket Servers and I like Tornado's 
+asynchronous networking stack as it makes the structuring of your server far easy when
+designing for scalable applications. I've put an example of a websocket server that processes
+animation state trigger changes from the Unity client. 
+
+I use the SetTrigger call in Unity (along with the networking code) to trigger the animations
+across all devices. When the SetTrigger function is called, it sends that data over sockets
+to the server to write to a table that the corresponding client can read from
+####
+
+#### Python Code in Tornado ####
+
+################################
+######## Setups ################
+################################
+
+dynamodb = boto3.resource('dynamodb', region_name='whatever-your-region-could-be-based-on-load-balancer', endpoint_url="whatever-your-url-could-be-given-by-load-balancer:PORT")
+
+################################
+##### Internal Funcs ###########
+################################
+
+#
+# callback for Animate State Socket Opening
+#
+
+def animationStateOpened(noc, ip_data):
+
+	# on opening connection, create table storing values
+	dT = strftime("%Y-%m-%d_%H:%M:%S", datetime.now())
+
+	# uuid4 might be a bit long mixed in the client IP added as string, but makes 'damn-sure' we never cross over tables with bagillions of users ;)
+	ID = str(uuid.uuid4()) + '_' + str(ip_data) + '_animState'
+
+	# add table identifiers based on the number of connections expected at initiation, setup vars
+	PIDs = []
+	KS = []
+	AD = []
+
+	# loop through the length of noc (number of connections) to generate the table schema
+	for i in range(0, noc):
+		aN_1 = {
+			'AttributeName': 'PID_' + str(i),
+			'KeyType': 'HASH'
+		}
+		KS.append(aN_1)
+		aN_2 = {
+			'AttributeName': 'c_State_' + str(i),
+			'KeyType': 'RANGE'
+		}
+		KS.append(aN_2)
+		aD_1 = {
+			'AttributeName': 'PID_' + str(i),
+			'AttributeType': 'S'
+		}
+		AD.append(aD_1)
+		aD_2 = {
+			'AttributeName': 'c_State_' + str(i),
+			'AttributeType': 'S'
+		}
+		AD.append(aD_2)
+		PIDs.append('PID_' + str(i))
+
+	# add some other necessary chunks of data to the table definition that are crucial to deleting later
+	aN_ip = {
+		'AttributeName': 'cIP',
+		'KeyType': 'HASH'
+	}
+	KS.append(aN_ip)
+	aD_ip = {
+		'AttributeName': 'cIP',
+		'AttributeType': 'S'
+	}
+	AD.append(aD_ip)
+
+	# now really create that table based off of our dynamically generated NOC list ;)
+	table = dynamodb.create_table(
+		TableName=ID,
+		KeySchema=KS,
+		AttributeDefinitions=AD,
+		ProvisionedThroughput={
+			'ReadCapacityUnits': 10,
+			'WriteCapacityUnits': 10
+		}
+	)
+
+	# now we write a value to start the table process relative for all the users
+
+	temp_animState = 'isHolding' # the bool trigger in Unity that activates the loading for user
+
+	# now we write all the users that temp bool trigger
+	for i in PIDs:
+		response = table.put_item(
+			Item={
+				i: temp_animState 
+			}
+		)
+		print('Added temp trigger to PID animState table!')
+
+	# now add the IP of the client request to the end of the table
+	ip_resp = table.put_item(
+		Item={
+			'cIP': str(ip_data)
+		}
+	)
+	print(ip_resp)
+
+	print("Table status:", table.table_status)
+	return {'tS': table.table_status, 'id': ID
+  
+  #### The above function creates a unique DynamoDB table that hold N number of connections and setup
+  the appropriate columns for the data to be read and updatted.
+  #### Below is the class used for the 3 available Tornado WebSocket handlers that call the appropriate function for writing.
+  This uses SimpleJSON.
+  ####
+  
+  class AnimationStateHandler(tornado.websocket.WebSocketHandler):
+	def open(self):
+		print 'AnimationState Socket Connection opened!'
+
+		# use the internal functions of the instance to create an Animation State Table for this specific multi-user session
+		a = animationStateOpened(self.request.remote_ip)
+
+		# return the relevant data (Table Status and id of the table made for session)
+		b = json.loads(json.dumps(a))
+
+		# debug print and return
+		print(a)
+		return b
+
+	def on_message(self, message):
+		print 'Data received: ' + message
+
+		# read the json data and split into the appropriate pieces
+		a = json.loads(json.dumps(message))
+		ID = a['id']
+		PID = a['pid']
+		c_State = a['cS']
+
+		# call the internal function to write to the DynamoTable (as a reference used for prediction later)
+		b = animationStateReceived(ID, PID, c_State)
+
+		return {'status': b}
+
+	def on_close(self):
+		print 'AnimationState Socket Connection closed!'
+
+		# use internal function of instance to delete the Animation State Table for multi-user session
+		a = 
+		b = animationStateClosed(ID)
+    
+####
+All of the above is setup below in the Application (minus my Transform handler), like so:
+####
+
+class Application(tornado.web.Application):
+	def __init__(self):
+		handlers = [
+			(r'/tph', TransformPositionHandler),
+			(r'ash', AnimationStateHandler)
+		]
+
+		settings = {}
+		tornado.web.Application.__init__(self, handlers, **settings)
+  
+  #### Below is a sample of the relevant C# code in Unity that reacts to these events and writes data. ####
+  
+  // Called when an Animation State is going to change
+  
+    void AnimationStateChange(WebSocket _ws, string trigger, string id, string pid, Animator player)
+    {
+        Debug.Log("Changing to: " + trigger);
+        _ws.Send(trigger);
+        player.SetBool(trigger, true);
+    }
+    
+    // Called when this namespace receives a message from the server corresponding to another player changing
+  
+    void OnMessageReceived(WebSocket _ws, string message)
+    {
+      Debug.Log("Messaged sent from server: " + message);
+      var data = JSON.Parse(message);
+      var curr_state = data['cS']
+      ChangeLocalAnimation(curr_state);
+    }
+    
+    void ChangeLocalAnimation(string data)
+    {
+    // player relative to the GO that this lives on, as well as defined as Animator property
+      player.SetBool(data);
+    }
+  
