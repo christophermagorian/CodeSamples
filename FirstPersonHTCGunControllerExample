@@ -1,0 +1,52 @@
+
+#### A Super simple script that uses the SteamVR_TrackedObject and Controller methods to shoot a gun.
+Nothing crazy here, just mapping buttons to functions
+####
+
+
+
+ public GameObject controllerRight;
+    public GameObject projectile;
+    public float force = 20;
+    public Vector3 beam_start;
+
+    private SteamVR_TrackedObject trackedObj;
+    private SteamVR_Controller.Device device;
+
+    private SteamVR_TrackedController controller;
+
+    public Transform muzzleTransform;
+
+	// Use this for initialization
+	void Start () {
+
+        controller = controllerRight.GetComponent<SteamVR_TrackedController>();
+        controller.TriggerClicked += TriggerPressed;
+        trackedObj = controllerRight.GetComponent<SteamVR_TrackedObject>();
+		
+	}
+
+    private void TriggerPressed(object sender, ClickedEventArgs e)
+    {
+        //Debug.Log("Shot!");
+        ShootWeapon();
+    }
+
+    public void ShootWeapon()
+    {
+        RaycastHit hit = new RaycastHit();
+        Ray ray = new Ray(muzzleTransform.position, muzzleTransform.forward);
+
+        device = SteamVR_Controller.Input((int)trackedObj.index);
+        device.TriggerHapticPulse(1500);
+        GameObject bullet = Instantiate(projectile, muzzleTransform.transform.position, Quaternion.Euler(new Vector3(-65, -45, 0))) as GameObject;
+        bullet.GetComponent<Rigidbody>().AddForce(muzzleTransform.transform.forward * 1000);
+
+        if (Physics.Raycast(ray, out hit, 5000f))
+        {
+            if (hit.collider.attachedRigidbody)
+            {
+                Debug.Log("We've hit " + hit.collider.gameObject.name);
+            }
+        }
+    }
