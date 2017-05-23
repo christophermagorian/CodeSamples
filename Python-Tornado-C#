@@ -190,6 +190,6 @@ class Application(tornado.web.Application):
     void ChangeLocalAnimation(string data)
     {
     // player relative to the GO that this lives on, as well as defined as Animator property
-      player.SetBool(data);
+      player.SetBool(data, true);
     }
   
