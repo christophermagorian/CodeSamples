@@ -92,12 +92,28 @@ Socket base = manager.Socket;
 // the correct namespace:
 Socket player = manager["/player"]
 
+// create JSON like string using SimpleJSON
+string CreateTransformJsonString(string id, string p_x, string p_y, string p_z, string r_x, string r_y, string r_z)
+    {
+        JSONNode transData = new JSONArray();
+        transData.Add(id);
+        transData.Add(p_x);
+        transData.Add(p_y);
+        transData.Add(p_z);
+        transData.Add(r_x);
+        transData.Add(r_y);
+        transData.Add(r_z);
+        return transData.ToString();
+    }
+
 // called in a coroutine
 void OnPlayerTransform(Socket s, Packet p, params object[] args)
 {
   Vector3 curr_Trans = player.transform.position;
   Vector3 curr_Rot = player.transform.rotation.eulerAngles;
   
-  manager.Socket.Emit("pTt", curr_Trans.x, curr_Trans.y, curr_Trans.z, curr_Rot.x, curr_Rot.y, curr_Rot.z);
+  string data = CreateTransformJsonString(curr_Trans.x, curr_Trans.y, curr_Trans.z, curr_Rot.x, curr_Rot.y, curr_Rot.z);
+  
+  manager.Socket.Emit("pTt", data);
 }
 
